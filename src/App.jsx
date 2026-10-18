@@ -32,29 +32,34 @@ function PoApp() {
     const payload = JSON.parse(JSON.stringify(poList));
 
     try {
-      // First try the Vite proxy middleware which completely encapsulates
-      // target URL and secret key on the server side (avoiding CORS and client leaks)
-      let response;
-      try {
-        response = await fetch('/api/dispatch-po', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } catch (proxyErr) {
-        // Fallback to direct client fetch if proxy endpoint is not present
-        const fallbackUrl = import.meta.env.VITE_API_URL || 'https://iboss.sagargroup.co/ords/sagardashboard/po/purchaseorders/';
+      // Dispatch via serverless backend proxy (/api/dispatch-po)
+      let response = await fetch('/api/dispatch-po', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // If serverless proxy is not reachable, fallback to direct fetch
+      if (response.status === 404) {
+        const fallbackUrl = import.meta.env.VITE_API_URL || '';
         const apiKey = import.meta.env.VITE_API_KEY || '';
         const headerName = import.meta.env.VITE_API_KEY_HEADER || 'x-api-key';
         
-        const fallbackHeaders = { 'Content-Type': 'application/json' };
-        if (apiKey) fallbackHeaders[headerName] = apiKey;
+        if (fallbackUrl) {
+          const fallbackHeaders = { 'Content-Type': 'application/json' };
+          if (apiKey) fallbackHeaders[headerName] = apiKey;
 
-        response = await fetch(fallbackUrl, {
-          method: 'POST',
-          headers: fallbackHeaders,
-          body: JSON.stringify(payload)
-        });
+          try {
+            const directRes = await fetch(fallbackUrl, {
+              method: 'POST',
+              headers: fallbackHeaders,
+              body: JSON.stringify(payload)
+            });
+            response = directRes;
+          } catch {
+            // Keep original response if direct fetch fails (e.g. CORS)
+          }
+        }
       }
 
       const endTime = performance.now();

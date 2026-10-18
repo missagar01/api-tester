@@ -16,9 +16,18 @@ export default defineConfig(({ mode }) => {
               let body = ''
               req.on('data', chunk => { body += chunk })
               req.on('end', async () => {
-                const targetUrl = env.VITE_API_URL || 'https://iboss.sagargroup.co/ords/sagardashboard/po/purchaseorders/'
-                const apiKey = env.VITE_API_KEY || ''
-                const headerName = env.VITE_API_KEY_HEADER || 'x-api-key'
+                const targetUrl = env.VITE_API_URL || process.env.VITE_API_URL || ''
+                const apiKey = env.VITE_API_KEY || process.env.VITE_API_KEY || ''
+                const headerName = env.VITE_API_KEY_HEADER || process.env.VITE_API_KEY_HEADER || 'x-api-key'
+
+                if (!targetUrl) {
+                  res.statusCode = 500
+                  res.setHeader('Content-Type', 'application/json')
+                  res.end(JSON.stringify({
+                    error: 'Target API URL is not configured. Please set VITE_API_URL in your .env file.'
+                  }))
+                  return
+                }
 
                 try {
                   const headers = { 'Content-Type': 'application/json' }
